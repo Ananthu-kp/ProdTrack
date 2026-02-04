@@ -1,44 +1,34 @@
-import db from '../config/db.js';
-import fs from 'fs';
-import path from 'path';
+import * as productService from '../services/productService.js';
 
 
-export const getAllProducts = async (req, res) => {
+export const getAllProductsController = async (req, res) => {
     try {
-        const [products] = await db.query(
-            'SELECT * FROM products ORDER BY created_at DESC'
-        );
+        const products = await productService.getAllProducts();
 
         res.status(200).json({
             success: true,
             data: products
         });
-
     } catch (error) {
         console.error('Get products error:', error);
-        res.status(500).json({ message: "Failed to fetch products" });
+        res.status(500).json({ message: 'Failed to fetch products' });
     }
 };
 
 
-export const getProductById = async (req, res) => {
+export const getProductByIdController = async (req, res) => {
     try {
         const { id } = req.params;
+        const product = await productService.getProductById(id);
 
-        const [products] = await db.query(
-            'SELECT * FROM products WHERE id = ?',
-            [id]
-        );
-
-        if (products.length === 0) {
+        if (!product) {
             return res.status(404).json({ message: 'Product not found' });
         }
 
         res.status(200).json({
             success: true,
-            data: products[0]
+            data: product
         });
-
     } catch (error) {
         console.error('Get product error:', error);
         res.status(500).json({ message: 'Failed to fetch product' });
@@ -46,125 +36,77 @@ export const getProductById = async (req, res) => {
 };
 
 
-export const createProduct = async (req, res) => {
+export const createProductController = async (req, res) => {
     try {
-        const { name, description, price, quantity, category } = req.body;
+        const validation = productService.validateProductData(req.body);
 
-        if (!name || !price || !quantity) {
-            return res.status(400).json({ message: 'Name, price and quantity are required' });
+        if (!validation.valid) {
+            if (req.file) {
+                productService.deleteProductImage(req.file.filename);
+            }
+
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: validation.errors
+            });
         }
 
-        const image = req.file ? req.file.filename : 'default-product.jpg';
+        const imageName = req.file ? req.file.filename : 'default-product.jpg';
 
-        // Insert product into database
-        const [result] = await db.query(
-            'INSERT INTO products (name, description, price, quantity, category, image) VALUES (?, ?, ?, ?, ?, ?)',
-            [name, description, price, quantity, category, image]
-        );
-
-        const [newProduct] = await db.query(
-            'SELECT * FROM products WHERE id = ?',
-            [result.insertId]
-        );
+        const newProduct = await productService.createProduct(req.body, imageName);
 
         res.status(201).json({
             success: true,
             message: 'Product created successfully',
-            data: newProduct[0]
+            data: newProduct
         });
 
     } catch (error) {
         console.error('Create product error:', error);
+
         if (req.file) {
-            fs.unlinkSync(req.file.path);
+            productService.deleteProductImage(req.file.filename);
         }
         res.status(500).json({ message: 'Failed to create product' });
     }
 };
 
 
-export const updateProduct = async (req, res) => {
+export const updateProductController = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, price, quantity, category } = req.body;
 
-        const [existingProduct] = await db.query(
-            'SELECT * FROM products WHERE id = ?',
-            [id]
-        );
+        const newImageName = req.file ? req.file.filename : null;
 
-        if (existingProduct.length === 0) {
-            return res.status(404).json({ message: 'Product not found' });
-        }
-
-        let image = existingProduct[0].image;
-
-        if (req.file) {
-            image = req.file.filename;
-
-            const oldImage = existingProduct[0].image;
-            if (oldImage !== 'default-product.jpg') {
-                const oldImagePath = path.join('public/uploads', oldImage);
-                if (fs.existsSync(oldImagePath)) {
-                    fs.unlinkSync(oldImagePath);
-                }
-            }
-        }
-
-        await db.query(
-            'UPDATE products SET name = ?, description = ?, price = ?, quantity = ?, category = ?, image = ? WHERE id = ?',
-            [name, description, price, quantity, category, image, id]
-        );
-
-        const [updatedProduct] = await db.query(
-            'SELECT * FROM products WHERE id = ?',
-            [id]
-        );
+        const updatedProduct = await productService.updateProduct(id, req.body, newImageName);
 
         res.status(200).json({
             success: true,
             message: 'Product updated successfully',
-            data: updatedProduct[0]
+            data: updatedProduct
         });
 
     } catch (error) {
         console.error('Update product error:', error);
+
         if (req.file) {
-            fs.unlinkSync(req.file.path);
+            productService.deleteProductImage(req.file.filename);
+        }
+
+        if (error.message === 'Product not found') {
+            return res.status(404).json({ message: error.message });
         }
         res.status(500).json({ message: 'Failed to update product' });
     }
 };
 
 
-export const deleteProduct = async (req, res) => {
+export const deleteProductController = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Get product to find image filename
-        const [product] = await db.query(
-            'SELECT * FROM products WHERE id = ?',
-            [id]
-        );
-
-        if (product.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            });
-        }
-
-        // Delete product from database
-        await db.query('DELETE FROM products WHERE id = ?', [id]);
-
-        // Delete product image if not default
-        const imageName = product[0].image;
-        if (imageName !== 'default-product.jpg') {
-            const imagePath = path.join('public/uploads', imageName);
-            if (fs.existsSync(imagePath)) {
-                fs.unlinkSync(imagePath);
-            }
-        }
+        await productService.deleteProduct(id);
 
         res.status(200).json({
             success: true,
@@ -173,41 +115,22 @@ export const deleteProduct = async (req, res) => {
 
     } catch (error) {
         console.error('Delete product error:', error);
+
+        if (error.message === 'Product not found') {
+            return res.status(404).json({ message: error.message });
+        }
         res.status(500).json({ message: 'Failed to delete product' });
     }
 };
 
 
-export const getReport = async (req, res) => {
+export const getReportController = async (req, res) => {
     try {
-        // Get total number of products
-        const [countResult] = await db.query(
-            'SELECT COUNT(*) as totalProducts FROM products'
-        );
-
-        // Get total inventory value 
-        const [valueResult] = await db.query(
-            'SELECT SUM(price * quantity) as totalValue FROM products'
-        );
-
-        // Get total quantity of all products
-        const [quantityResult] = await db.query(
-            'SELECT SUM(quantity) as totalQuantity FROM products'
-        );
-
-        // Get category-wise count
-        const [categoryResult] = await db.query(
-            'SELECT category, COUNT(*) as count FROM products GROUP BY category'
-        );
+        const reportData = await productService.getProductReport();
 
         res.status(200).json({
             success: true,
-            data: {
-                totalProducts: countResult[0].totalProducts,
-                totalValue: valueResult[0].totalValue || 0,
-                totalQuantity: quantityResult[0].totalQuantity || 0,
-                categoryBreakdown: categoryResult
-            }
+            data: reportData
         });
 
     } catch (error) {
