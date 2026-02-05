@@ -1,13 +1,10 @@
-// Check login
 const user = JSON.parse(localStorage.getItem('user'));
 if (!user) window.location.href = '/';
 
-// Variables
 let currentEditId = null;
 let deleteProductId = null;
 let allProducts = [];
 
-// DOM Elements
 const navLinks = document.querySelectorAll('.nav-link');
 const sections = document.querySelectorAll('.section');
 const logoutBtn = document.getElementById('logoutBtn');
@@ -21,14 +18,12 @@ const cancelDelete = document.getElementById('cancelDelete');
 const cancelBtn = document.getElementById('cancelBtn');
 const toast = document.getElementById('toast');
 
-// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     userInfo.textContent = `Welcome, ${user.username}`;
     loadProducts();
     setupEvents();
 });
 
-// Setup Events
 function setupEvents() {
     navLinks.forEach(link => link.addEventListener('click', handleNav));
     logoutBtn.addEventListener('click', handleLogout);
@@ -39,7 +34,6 @@ function setupEvents() {
     cancelDelete.addEventListener('click', closeModal);
 }
 
-// Navigation
 function handleNav(e) {
     e.preventDefault();
     navLinks.forEach(l => l.classList.remove('active'));
@@ -54,18 +48,16 @@ function handleNav(e) {
     if (section === 'add') resetForm();
 }
 
-// Logout
 function handleLogout() {
-    if (confirm('Logout?')) {
+    if (confirm('Are you sure you want to logout?')) {
         localStorage.removeItem('user');
         window.location.href = '/';
     }
 }
 
-// Load Products
 async function loadProducts() {
     try {
-        productsGrid.innerHTML = '<p class="loading">Loading...</p>';
+        productsGrid.innerHTML = '<p class="loading">Loading products...</p>';
         const res = await fetch('/api/products');
         const data = await res.json();
 
@@ -73,17 +65,17 @@ async function loadProducts() {
             allProducts = data.data;
             displayProducts(allProducts);
         } else {
-            productsGrid.innerHTML = '<p class="loading">Failed to load</p>';
+            productsGrid.innerHTML = '<p class="loading">Failed to load products</p>';
         }
     } catch (error) {
-        productsGrid.innerHTML = '<p class="loading">Error loading</p>';
+        console.error('Load products error:', error);
+        productsGrid.innerHTML = '<p class="loading">Error loading products</p>';
     }
 }
 
-// Display Products
 function displayProducts(products) {
     if (products.length === 0) {
-        productsGrid.innerHTML = '<p class="loading">No products</p>';
+        productsGrid.innerHTML = '<p class="loading">No products found</p>';
         return;
     }
 
@@ -108,7 +100,6 @@ function displayProducts(products) {
     `).join('');
 }
 
-// Search
 function handleSearch(e) {
     const term = e.target.value.toLowerCase().trim();
     if (term === '') {
@@ -124,7 +115,6 @@ function handleSearch(e) {
     displayProducts(filtered);
 }
 
-// Edit Product
 async function editProduct(id) {
     try {
         const res = await fetch(`/api/products/${id}`);
@@ -143,14 +133,16 @@ async function editProduct(id) {
             document.getElementById('productDescription').value = p.description || '';
 
             document.getElementById('formTitle').textContent = 'Edit Product';
-            document.getElementById('submitBtn').textContent = 'Update';
+            document.getElementById('submitBtn').textContent = 'Update Product';
+        } else {
+            showToast('Failed to load product', 'error');
         }
     } catch (error) {
+        console.error('Edit product error:', error);
         showToast('Error loading product', 'error');
     }
 }
 
-// Reset Form
 function resetForm() {
     currentEditId = null;
     productForm.reset();
@@ -159,9 +151,34 @@ function resetForm() {
     document.getElementById('submitBtn').textContent = 'Add Product';
 }
 
-// Submit Form
+// Submit Form - WITH VALIDATION
 async function handleSubmit(e) {
     e.preventDefault();
+
+    // Get form values
+    const name = document.getElementById('productName').value.trim();
+    const price = document.getElementById('productPrice').value;
+    const quantity = document.getElementById('productQuantity').value;
+
+    // Frontend validation
+    const errors = [];
+    if (!name) {
+        errors.push('Product name is required');
+    }
+    if (!price || isNaN(price) || parseFloat(price) <= 0) {
+        errors.push('Valid price is required');
+    }
+    if (!quantity || isNaN(quantity) || parseInt(quantity) < 0) {
+        errors.push('Valid quantity is required');
+    }
+
+    // Show validation errors
+    if (errors.length > 0) {
+        showToast(errors.join(', '), 'error');
+        return;
+    }
+
+    // Proceed with form submission
     const formData = new FormData(productForm);
     const submitBtn = document.getElementById('submitBtn');
 
@@ -181,13 +198,19 @@ async function handleSubmit(e) {
             document.querySelector('[data-section="products"]').click();
             loadProducts();
         } else {
-            showToast(data.message || 'Failed', 'error');
+            // Handle backend errors
+            if (data.errors && data.errors.length > 0) {
+                showToast(data.errors.join(', '), 'error');
+            } else {
+                showToast(data.message || 'Failed to save product', 'error');
+            }
         }
     } catch (error) {
-        showToast('Network error', 'error');
+        console.error('Submit error:', error);
+        showToast('Network error. Please try again.', 'error');
     } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = currentEditId ? 'Update' : 'Add Product';
+        submitBtn.textContent = currentEditId ? 'Update Product' : 'Add Product';
     }
 }
 
@@ -202,28 +225,31 @@ function closeModal() {
     deleteModal.classList.remove('active');
 }
 
+// Delete Product
 async function handleDelete() {
     if (!deleteProductId) return;
 
-    confirmDelete.disabled = true;
-    confirmDelete.textContent = 'Deleting...';
+    const btn = confirmDelete;
+    btn.disabled = true;
+    btn.textContent = 'Deleting...';
 
     try {
         const res = await fetch(`/api/products/${deleteProductId}`, { method: 'DELETE' });
         const data = await res.json();
 
         if (data.success) {
-            showToast('Deleted', 'success');
+            showToast('Product deleted successfully', 'success');
             loadProducts();
             closeModal();
         } else {
-            showToast('Failed', 'error');
+            showToast('Failed to delete product', 'error');
         }
     } catch (error) {
-        showToast('Error', 'error');
+        console.error('Delete error:', error);
+        showToast('Error deleting product', 'error');
     } finally {
-        confirmDelete.disabled = false;
-        confirmDelete.textContent = 'Delete';
+        btn.disabled = false;
+        btn.textContent = 'Delete';
     }
 }
 
@@ -248,21 +274,20 @@ async function loadReports() {
                     </div>
                 `).join('');
             } else {
-                categoryList.innerHTML = '<p>No data</p>';
+                categoryList.innerHTML = '<p>No categories found</p>';
             }
         }
     } catch (error) {
+        console.error('Load reports error:', error);
         showToast('Error loading reports', 'error');
     }
 }
 
-// Toast
 function showToast(message, type = 'success') {
     toast.textContent = message;
     toast.className = `toast ${type} show`;
     setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-// Global functions
 window.editProduct = editProduct;
 window.openModal = openModal;
