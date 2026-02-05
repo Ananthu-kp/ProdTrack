@@ -39,6 +39,11 @@
     </div>
 
     <script>
+        const user = localStorage.getItem('user');
+        if (user) {
+            window.location.replace('/dashboard');
+        }
+
         const form = document.getElementById('loginForm');
         const error = document.getElementById('error');
         const btn = document.getElementById('btn');
@@ -63,7 +68,7 @@
 
                 if (data.success) {
                     localStorage.setItem('user', JSON.stringify(data.data));
-                    location.href = '/dashboard';
+                    window.location.replace('/dashboard');
                 } else {
                     error.textContent = data.message || 'Login failed';
                     error.style.display = 'block';
