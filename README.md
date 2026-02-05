@@ -46,8 +46,8 @@ A complete product management system built with Node.js, Express.js, MySQL, and 
 - Express.js
 - MySQL (mysql2)
 - bcrypt (Password encryption)
-- multer  (File upload)
-- dotenv  (Environment variables)
+- multer (File upload)
+- dotenv (Environment variables)
 
 **Frontend:**
 - HTML5
@@ -56,7 +56,7 @@ A complete product management system built with Node.js, Express.js, MySQL, and 
 - Fetch API for HTTP requests
 
 **Database:**
-- MySQL 
+- MySQL
 
 ---
 
@@ -106,12 +106,19 @@ prodtrack/
 Before running the application, ensure you have the following installed:
 - **Node.js** (v14.0.0 or higher) - [Download here](https://nodejs.org/)
 - **MySQL** (v5.7 or higher) - [Download here](https://dev.mysql.com/downloads/)
-- **npm** (comes with Node.js)
 
-### **Step 1: Extract Project Files**
+### **Step 1: Get the Project Files**
 
-Extract the submitted ZIP file to your desired location.
+**Option A - Clone from GitHub (if available):**
+```bash
+git clone <repository-url>
+cd prodtrack
+```
 
+**Option B - Download ZIP:**
+1. Download the project ZIP file
+2. Extract to your desired location
+3. Navigate to the project folder:
 ```bash
 cd prodtrack
 ```
@@ -133,24 +140,30 @@ This will install:
 
 ### **Step 3: Setup MySQL Database**
 
-1. **Login to MySQL:**
+1. **Start MySQL Service:**
+   
+   **Windows:**
+   - Open Services → Start MySQL service
+
+2. **Login to MySQL:**
    ```bash
    mysql -u root -p
    ```
-   (Enter your MySQL root password)
+   Enter your MySQL root password when prompted.
 
-2. **Create and Import Database:**
+3. **Create and Import Database:**
    
-   **Option A - Using MySQL Command Line:**
+   **Option A - Using Command Line (Recommended):**
    ```bash
    mysql -u root -p < database.sql
    ```
-
+   
    **Option B - From MySQL Shell:**
    ```sql
    source /path/to/prodtrack/database.sql
    ```
-
+   Replace `/path/to/prodtrack/` with your actual project path.
+   
    **Option C - Manual Import:**
    ```sql
    CREATE DATABASE prodtrack;
@@ -158,17 +171,22 @@ This will install:
    -- Then copy and paste the contents of database.sql
    ```
 
-3. **Verify Database Creation:**
+4. **Verify Database Creation:**
    ```sql
-   SHOW DATABASES;  -- Should show 'prodtrack'
-   USE prodtrack;
-   SHOW TABLES;     -- Should show 'users' and 'products'
+   SHOW DATABASES;
    ```
+   You should see `prodtrack` in the list.
+   
+   ```sql
+   USE prodtrack;
+   SHOW TABLES;
+   ```
+   You should see `users` and `products` tables.
 
 ### **Step 4: Configure Environment Variables**
 
-1. Open the `.env` file in the project root
-2. Update the database credentials:
+1. Open the `.env` file in the project root directory
+2. Update the database credentials with your MySQL settings:
 
 ```env
 DB_HOST=localhost
@@ -180,6 +198,15 @@ PORT=3000
 
 **Important:** Replace `your_mysql_password_here` with your actual MySQL root password.
 
+**Example:**
+```env
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=MyPassword123
+DB_NAME=prodtrack
+PORT=3000
+```
+
 ### **Step 5: Create Admin User**
 
 Run the admin creation script to create the default admin account:
@@ -188,7 +215,7 @@ Run the admin creation script to create the default admin account:
 node scripts/create-admin.js
 ```
 
-You should see:
+**Expected Output:**
 ```
 ✅ Admin user created successfully!
 ================================
@@ -198,15 +225,7 @@ User ID: 1
 ================================
 ```
 
-**Note:** If you see "⚠️ Admin user already exists!", that's fine - the admin is already created.
-
-### **Step 6: Create Uploads Directory**
-
-Ensure the uploads directory exists:
-
-```bash
-mkdir -p public/uploads
-```
+**Note:** If you see "⚠️ Admin user already exists!", that's perfectly fine - it means the admin account is already created.
 
 ---
 
@@ -218,32 +237,51 @@ Start the server using:
 node app.js
 ```
 
-You should see:
+**Expected Output:**
 ```
 Database connected successfully
 Server running on http://localhost:3000
 ```
 
-If you see "Database connection failed", check your MySQL credentials in `.env` file.
+**If you see errors:**
+- `Database connection failed` → Check MySQL credentials in `.env` file
+- `Port 3000 already in use` → Change PORT in `.env` to 3001 or another available port
+- `Cannot find module` → Run `npm install` again
 
 ---
+
+## 🌐 Using the Application
+
+### **Step 1: Access the Application**
+
+Open your web browser and navigate to:
+```
+http://localhost:3000
+```
+
+### **Step 2: Login**
+
+Use the default admin credentials:
+- **Username:** `admin`
+- **Password:** `admin123`
 
 ## 🔌 API Endpoints
 
 ### **Authentication**
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/login` | User login |
+| Method | Endpoint | Description | Request Body |
+|--------|----------|-------------|--------------|
+| POST | `/api/auth/login` | User login | `{ "username": "admin", "password": "admin123" }` |
 
 ### **Products**
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/products` | Get all products |
-| GET | `/api/products/:id` | Get single product |
-| POST | `/api/products` | Create new product |
-| PUT | `/api/products/:id` | Update product |
-| DELETE | `/api/products/:id` | Delete product |
-| GET | `/api/products/report` | Get analytics report |
+| Method | Endpoint | Description | Request Body |
+|--------|----------|-------------|--------------|
+| GET | `/api/products` | Get all products | - |
+| GET | `/api/products/:id` | Get single product by ID | - |
+| POST | `/api/products` | Create new product | FormData (name, price, quantity, category, description, image) |
+| PUT | `/api/products/:id` | Update existing product | FormData (updated fields) |
+| DELETE | `/api/products/:id` | Delete product | - |
+| GET | `/api/products/report` | Get analytics report | - |
+
 
 ---
 
@@ -251,35 +289,45 @@ If you see "Database connection failed", check your MySQL credentials in `.env` 
 
 ### **users Table**
 ```sql
-id INT AUTO_INCREMENT PRIMARY KEY
-username VARCHAR(50) NOT NULL UNIQUE
-password VARCHAR(255) NOT NULL
-created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
+
+**Fields:**
+- `id` - Auto-incrementing primary key
+- `username` - Unique username (max 50 characters)
+- `password` - Hashed password using bcrypt
+- `created_at` - Account creation timestamp
 
 ### **products Table**
 ```sql
-id INT AUTO_INCREMENT PRIMARY KEY
-name VARCHAR(100) NOT NULL
-description TEXT
-price DECIMAL(10, 2) NOT NULL
-quantity INT NOT NULL DEFAULT 0
-category VARCHAR(50)
-image VARCHAR(255) DEFAULT 'default-product.jpg'
-created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+CREATE TABLE products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    quantity INT NOT NULL DEFAULT 0,
+    category VARCHAR(50),
+    image VARCHAR(255) DEFAULT 'default-product.jpg',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 ```
 
----
-
-## 🔒 Security Features
-
-1. **Password Hashing:** All passwords are hashed using bcrypt with salt rounds of 10
-2. **SQL Injection Prevention:** All database queries use parameterized statements
-3. **File Type Validation:** Only image files (JPEG, PNG, GIF, WEBP) are allowed
-4. **File Size Limit:** Maximum upload size of 5MB
-5. **Input Validation:** Both frontend and backend validation for all forms
-6. **Session Management:** User authentication verified on protected routes
+**Fields:**
+- `id` - Auto-incrementing primary key
+- `name` - Product name (max 100 characters, required)
+- `description` - Product description (optional)
+- `price` - Product price (decimal, 10 digits with 2 decimal places)
+- `quantity` - Stock quantity (integer, default 0)
+- `category` - Product category (max 50 characters)
+- `image` - Image filename (default: 'default-product.jpg')
+- `created_at` - Product creation timestamp
+- `updated_at` - Last update timestamp (auto-updates)
 
 ---
 
@@ -287,5 +335,4 @@ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 
 **Username:** `admin`  
 **Password:** `admin123`
-
 ---
